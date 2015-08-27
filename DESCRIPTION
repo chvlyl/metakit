@@ -1,0 +1,15 @@
+Package: metakit
+Type: Package
+Title: Common functions for metagenomic data analysis
+Version: 1.0
+Date: 2015-02-02
+Author: Eric Z Chen
+Maintainer: Eric Z Chen <chvlyl@gmailcom>
+Description: Common functions for metagenomic data analysis
+License: GPL-2
+Imports:
+    vegan,
+    devtools,
+    fpc,
+    lazyeval,
+    dplyr

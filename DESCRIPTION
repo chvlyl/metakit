@@ -12,4 +12,5 @@ Imports:
     devtools,
     fpc,
     lazyeval,
-    dplyr
+    dplyr,
+    randomForest

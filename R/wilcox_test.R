@@ -1,13 +1,8 @@
-#' wilcox rank sumtest
-#'
-#' @param data.matrix 
-#' @param sample.info 
-#' @param condition
-#' @return data matrix that subset by condtion
-#' @export
-#' @examples
+
+#### The boxplot layout has some issues, by column plot
 
 wilcox_test = function(data.matrix,label.matrix,
+                         parallel=FALSE,
                          ######
                          plot.heatmap=TRUE,
                          heatmap.top=0.05, #'all',5
@@ -37,29 +32,69 @@ wilcox_test = function(data.matrix,label.matrix,
   #### wilcoxon rank sum test
   wilcox.pq <- matrix(NA,nrow=ncol(data.matrix),ncol=14)
   rownames(wilcox.pq) <- colnames(data.matrix)
-  for (feature in colnames(data.matrix)){
-    wilcox.pq[feature,1] <- wilcox.test(data.matrix[,feature]~rf.labels)$p.value
-    mean.sd <- data.frame(value=data.matrix[,feature],label=rf.labels) %>% 
-    na.omit() %>% group_by(label) %>% 
-    summarise(median=median(value),mad=mad(value),
-              mean=mean(value),sd=sd(value),
-              present.prop=sum(value>0)/length(value),
-              median.present.abun=ifelse(sum(value>0)>0,median(value[value>0]),0)
-              ) 
-    #browser()
-    mean.sd.vec <- c(t(mean.sd[,-1])) #remove first column, label
-    wilcox.pq[feature,3:14] <- signif(as.numeric(mean.sd.vec),2)
-    ## In the following order (vector)
-    ## "g1.median" "g1.mad"    "g1.mean"   "g1.sd"  "g1.present.prop"  "g1.median.present.abu"
-    ## "g2.median" "g2.mad"    "g2.mean"   "g2.sd"  "g2.present.prop"  "g2.median.present.abu"
+  ############################
+  ## parallel
+  if (parallel){
+    ####
+    #registerDoParallel(cores=5)
+    cl<-makeCluster(5)
+    registerDoParallel(cl)
+    output.vec = foreach(feature=colnames(data.matrix),.combine='rbind',.packages="dplyr") %dopar% {
+      pval <- wilcox.test(data.matrix[,feature]~rf.labels)$p.value
+      mean.sd <- data.frame(value=data.matrix[,feature],label=rf.labels) %>% 
+        na.omit() %>% group_by(label) %>% 
+        summarise(median=median(value),mad=mad(value),
+                  mean=mean(value),sd=sd(value),
+                  present.prop=sum(value>0)/length(value),
+                  median.present.abun=ifelse(sum(value>0)>0,median(value[value>0]),0))
+      mean.sd.vec <- c(t(mean.sd[,-1])) #remove first column, label
+      output.vec <- c(pval, signif(as.numeric(mean.sd.vec),4))
+      output.vec <- as.matrix(output.vec)
+      colnames(output.vec) <- feature
+      rownames(output.vec) <- c('pval',  c(t(outer(mean.sd$label,colnames(mean.sd[,-1]),paste,sep='.'))) )
+      t(output.vec)
+      # In the following order (vector)
+      # "g1.median" "g1.mad"    "g1.mean"   "g1.sd"  "g1.present.prop"  "g1.median.present.abu"
+      # "g2.median" "g2.mad"    "g2.mean"   "g2.sd"  "g2.present.prop"  "g2.median.present.abu"
+    }
+    ### add row and col names
+    rownames(wilcox.pq) <- rownames(output.vec)
+    colnames(wilcox.pq) <- c(
+      paste(colnames(label.matrix),c('pvalue','qvalue'),sep='.'),
+      colnames(output.vec)[-1]
+    )
+    ### add values
+    wilcox.pq[,1] <- output.vec[,1]
+    wilcox.pq[,2] <- p.adjust(wilcox.pq[,1],method='fdr')
+    wilcox.pq[,3:14] <- output.vec[,2:13]
+    ########
   }
-  
-  wilcox.pq[,2] <- p.adjust(wilcox.pq[,1],method='fdr')
-  colnames(wilcox.pq) <- c(
+  ###################
+  ## non-parallel
+  else{
+    for (feature in colnames(data.matrix)){
+      wilcox.pq[feature,1] <- wilcox.test(data.matrix[,feature]~rf.labels)$p.value
+      mean.sd <- data.frame(value=data.matrix[,feature],label=rf.labels) %>% 
+        na.omit() %>% group_by(label) %>% 
+        summarise(median=median(value),mad=mad(value),
+                  mean=mean(value),sd=sd(value),
+                  present.prop=sum(value>0)/length(value),
+                  median.present.abun=ifelse(sum(value>0)>0,median(value[value>0]),0)
+        ) 
+      #browser()
+      mean.sd.vec <- c(t(mean.sd[,-1])) #remove first column, label
+      wilcox.pq[feature,3:14] <- signif(as.numeric(mean.sd.vec),4)
+      ## In the following order (vector)
+      ## "g1.median" "g1.mad"    "g1.mean"   "g1.sd"  "g1.present.prop"  "g1.median.present.abu"
+      ## "g2.median" "g2.mad"    "g2.mean"   "g2.sd"  "g2.present.prop"  "g2.median.present.abu"
+    }
+    ########
+    wilcox.pq[,2] <- p.adjust(wilcox.pq[,1],method='fdr')
+    colnames(wilcox.pq) <- c(
       paste(colnames(label.matrix),c('pvalue','qvalue'),sep='.'),
       c(t(outer(mean.sd$label,colnames(mean.sd[,-1]),paste,sep='.')))
     )
- 
+  }
   
   ## http://stackoverflow.com/questions/10323817/r-unexpected-results-from-p-adjust-fdr
   ## However there is one more portion to the adjustment

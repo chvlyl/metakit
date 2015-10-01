@@ -9,7 +9,7 @@
 
 random_forest = function(data.matrix,label.matrix,
                              plot.MDS=TRUE,plot.importance=TRUE,print.result=TRUE,
-                             title=NA,guess.num=20,
+                             title=NA,guess.num=20,cutoff=c(0.5,0.5),ntree=500,
                              boxplot.top=5,boxplot.y=NA,
                              seed=100){
   cgreen <- rgb(77,175,74,maxColorValue =255)
@@ -28,7 +28,7 @@ random_forest = function(data.matrix,label.matrix,
     print(label)
     rf.labels <- as.factor(label.matrix[,label,drop=T])
     set.seed(seed)
-    rf.model <- randomForest(data.matrix,rf.labels,
+    rf.model <- randomForest(data.matrix,rf.labels, cutoff=cutoff,ntree=ntree,
                              importance=TRUE,proximity=TRUE, na.action=na.omit)
     if(print.result){
       print(rf.model)
@@ -54,7 +54,7 @@ random_forest = function(data.matrix,label.matrix,
         set.seed(seed+i)
         rf.labels.per <- sample(rf.labels,length(rf.labels))
         set.seed(seed*5+i)
-        rf.model.per  <- randomForest(data.matrix,rf.labels.per,
+        rf.model.per  <- randomForest(data.matrix,rf.labels.per,cutoff=cutoff,ntree=ntree,
                                  importance=TRUE,proximity=TRUE, na.action=na.omit)
         rf.error.per[i] <- rf.model.per$err.rate[rf.model.per$ntree, "OOB"]
       }
@@ -68,6 +68,7 @@ random_forest = function(data.matrix,label.matrix,
     if (boxplot.top>0){
       ### model$importance and importance(model) give different results
       ### the varImpPlot uses the importance(model)
+      if (boxplot.top>ncol(data.matrix)){boxplot.top <- ncol(data.matrix)}
       top.feature <- names(sort(importance(rf.model)[,'MeanDecreaseAccuracy'],decreasing=TRUE)[1:boxplot.top])
       op <- par(no.readonly = TRUE)
       par(mfrow=c(2, 3), mar=c(4, 5, 4, 1), mgp=c(2, .8, 0),oma=c(0, 0, 2, 0))

@@ -12,7 +12,9 @@ random_forest = function(data.matrix,label.matrix,
                              title=NA,guess.num=20,
                              boxplot.top=5,boxplot.y=NA,
                              seed=100){
-  
+  cgreen <- rgb(77,175,74,maxColorValue =255)
+  cpurple <- rgb(152,78,163,maxColorValue =255)
+
   #library('randomForest')
   data.matrix   <- as.matrix(data.matrix)
   label.matrix <- as.data.frame(label.matrix)
